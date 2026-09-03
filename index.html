@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TechFi Invoicing">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1B2430">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%231B2430'/%3E%3Ctext x='90' y='108' font-family='Georgia,serif' font-size='84' fill='%23A8894F' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
+<title>TechFi Invoicing — Weekly Run</title>
+<style>
+  :root{
+    --ink:#1B2430;
+    --ink-soft:#2A3544;
+    --paper:#FBF9F4;
+    --paper-line:#D8D2C4;
+    --brass:#A8894F;
+    --brass-deep:#8C6F38;
+    --slate:#6B7480;
+    --slate-light:#96A0AA;
+    --moss:#4B6B4E;
+    --moss-bg:#EAF0EA;
+    --rust:#B24C3B;
+    --rust-bg:#F6E8E5;
+    --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    background:var(--ink);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .app{
+    display:grid;
+    grid-template-columns: 320px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width: 860px){
+    .app{ grid-template-columns: 1fr; }
+    .sidebar{ position:static !important; }
+  }
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar{
+    background:var(--ink);
+    color:#EDEBE4;
+    padding:calc(28px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom));
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+    border-right:1px solid #2E3A4A;
+  }
+  .brand{
+    font-family:var(--serif);
+    font-size:19px;
+    letter-spacing:0.2px;
+    color:#F4F2EA;
+    margin:0 0 2px;
+  }
+  .brand-sub{
+    font-size:12px;
+    color:var(--slate-light);
+    margin:0 0 28px;
+  }
+  .field-group{ margin-bottom:22px; }
+  .field-label{
+    display:block;
+    font-size:11.5px;
+    color:var(--slate-light);
+    margin-bottom:7px;
+  }
+  .field-value{
+    font-size:14px;
+    color:#EDEBE4;
+    background:var(--ink-soft);
+    border:1px solid #37455A;
+    border-radius:3px;
+    padding:9px 11px;
+  }
+  input[type=text], input[type=number]{
+    width:100%;
+    font-family:var(--sans);
+    font-size:15px;
+    color:#F4F2EA;
+    background:var(--ink-soft);
+    border:1px solid #3A4A5E;
+    border-radius:3px;
+    padding:9px 11px;
+    outline:none;
+  }
+  input:focus{ border-color:var(--brass); }
+  .toggle-row{
+    display:flex;
+    gap:8px;
+    margin-top:8px;
+  }
+  .toggle-btn{
+    flex:1;
+    padding:9px 8px;
+    font-size:13px;
+    border-radius:3px;
+    border:1px solid #3A4A5E;
+    background:transparent;
+    color:#C9CDD3;
+    cursor:pointer;
+  }
+  .toggle-btn.active{
+    background:var(--brass);
+    border-color:var(--brass);
+    color:#1B1710;
+    font-weight:600;
+  }
+  .hint{
+    font-size:12px;
+    color:var(--slate-light);
+    margin-top:8px;
+    line-height:1.5;
+  }
+  .divider{
+    border:none;
+    border-top:1px solid #2E3A4A;
+    margin:26px 0;
+  }
+  .btn-primary{
+    width:100%;
+    background:var(--brass);
+    color:#1B1710;
+    border:none;
+    border-radius:3px;
+    padding:12px 14px;
+    font-size:14.5px;
+    font-weight:600;
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .btn-primary:hover{ background:var(--brass-deep); }
+  .btn-ghost{
+    width:100%;
+    background:transparent;
+    color:#C9CDD3;
+    border:1px solid #3A4A5E;
+    border-radius:3px;
+    padding:10px 14px;
+    font-size:13.5px;
+    cursor:pointer;
+    margin-top:10px;
+  }
+  .archive-toggle{
+    font-size:12.5px;
+    color:var(--slate-light);
+    cursor:pointer;
+    text-decoration:underline;
+    text-underline-offset:3px;
+    margin-top:24px;
+    display:inline-block;
+  }
+
+  /* ---------- MAIN ---------- */
+  main{
+    background:#EFECE3;
+    padding:40px 5vw calc(80px + env(safe-area-inset-bottom));
+  }
+  .run-label{
+    font-size:12.5px;
+    color:var(--slate);
+    margin-bottom:6px;
+  }
+  .run-title{
+    font-family:var(--serif);
+    font-size:26px;
+    color:var(--ink);
+    margin:0 0 30px;
+  }
+
+  .panes{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:28px;
+    align-items:start;
+  }
+  @media (max-width: 1100px){
+    .panes{ grid-template-columns: 1fr; }
+  }
+
+  /* Invoice document */
+  .doc{
+    background:var(--paper);
+    border:1px solid var(--paper-line);
+    box-shadow:0 1px 3px rgba(0,0,0,0.08);
+    padding:44px 42px;
+    font-family:var(--serif);
+    color:#241F17;
+  }
+  .doc-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:26px;
+  }
+  .doc-company{ font-size:15px; line-height:1.55; }
+  .doc-company strong{ font-size:16px; }
+  .doc-meta{ text-align:right; font-size:13.5px; line-height:1.7; color:#4A4436; }
+  .doc-rule{ border:none; border-top:1px solid #C9C2AE; margin:22px 0; }
+  .doc-to-label{ font-size:11.5px; letter-spacing:0.4px; color:#8A8268; margin-bottom:4px; }
+  .doc-to{ font-size:14.5px; line-height:1.6; margin-bottom:26px; }
+  .doc-re{ font-size:14px; font-style:italic; color:#3A3527; margin-bottom:22px; }
+  table.doc-table{ width:100%; border-collapse:collapse; font-size:14.5px; }
+  table.doc-table td{ padding:9px 0; border-bottom:1px solid #E4DFCF; }
+  table.doc-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .doc-total-row td{ border-bottom:none; border-top:2px solid #241F17; padding-top:14px; font-weight:700; font-size:16px; }
+  .doc-flag{
+    margin-top:20px;
+    background:var(--rust-bg);
+    border-left:3px solid var(--rust);
+    padding:10px 13px;
+    font-family:var(--sans);
+    font-size:12.5px;
+    color:#7A3327;
+    line-height:1.5;
+  }
+
+  /* Email card */
+  .mail{
+    background:#FFFFFF;
+    border:1px solid #DAD5C8;
+    box-shadow:0 1px 3px rgba(0,0,0,0.06);
+  }
+  .mail-bar{
+    background:#F5F2EA;
+    border-bottom:1px solid #DAD5C8;
+    padding:14px 20px;
+    font-size:12.5px;
+    color:var(--slate);
+  }
+  .mail-row{ display:flex; gap:8px; margin-bottom:3px; }
+  .mail-row b{ color:#4A4436; width:44px; flex-shrink:0; }
+  .mail-body{
+    padding:22px 22px 24px;
+    font-size:14.5px;
+    line-height:1.7;
+    color:#2A2A26;
+    white-space:pre-wrap;
+  }
+  .mail-attach{
+    margin:14px 22px 22px;
+    padding:10px 13px;
+    background:#F5F2EA;
+    border:1px solid #DAD5C8;
+    border-radius:3px;
+    font-size:12.5px;
+    color:var(--slate);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .mail-attach::before{ content:"📎"; }
+
+  .confirm-bar{
+    margin-top:22px;
+    padding:18px 20px;
+    background:#FFFFFF;
+    border:1px solid #DAD5C8;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .confirm-copy{ font-size:13.5px; color:var(--slate); }
+  .confirm-actions{ display:flex; gap:10px; }
+  .btn-send{
+    background:var(--moss);
+    color:#fff;
+    border:none;
+    border-radius:3px;
+    padding:11px 20px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .btn-edit{
+    background:transparent;
+    border:1px solid #C7C1B0;
+    color:#4A4436;
+    border-radius:3px;
+    padding:11px 18px;
+    font-size:14px;
+    cursor:pointer;
+  }
+
+  .sent-banner{
+    margin-top:22px;
+    padding:16px 20px;
+    background:var(--moss-bg);
+    border:1px solid #C3D6C4;
+    color:#2F4A31;
+    font-size:14px;
+    border-radius:3px;
+  }
+
+  /* Archive */
+  .archive{
+    margin-top:34px;
+    background:#F5F2EA;
+    border:1px solid #DAD5C8;
+    padding:6px 0;
+  }
+  .archive-row{
+    display:grid;
+    grid-template-columns: 60px 1fr 90px 90px 110px;
+    gap:10px;
+    padding:11px 20px;
+    font-size:13px;
+    color:#3A3527;
+    border-bottom:1px solid #E4DFCF;
+    align-items:center;
+  }
+  .archive-row.head{
+    font-size:11px;
+    color:var(--slate);
+    letter-spacing:0.3px;
+  }
+  .archive-row:last-child{ border-bottom:none; }
+  .archive-empty{
+    padding:24px 20px;
+    font-size:13.5px;
+    color:var(--slate);
+  }
+
+  .banner-note{
+    background:#FFF8E8;
+    border:1px solid #E9D9A8;
+    color:#6B571E;
+    font-size:12.5px;
+    padding:11px 16px;
+    margin-bottom:22px;
+    line-height:1.5;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <p class="brand">TechFi Solutions Inc.</p>
+    <p class="brand-sub">Weekly invoice run — prototype</p>
+
+    <div class="field-group">
+      <span class="field-label">Client on file</span>
+      <div class="field-value">Prodigy Systems Inc</div>
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Standing rate (contract-locked)</span>
+      <div class="field-value">$93.00 / hr</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="field-group">
+      <span class="field-label">Week ending (Friday)</span>
+      <input type="text" id="periodDate" value="">
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Any change in hours this week?</span>
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="btnNoChange" onclick="setChange(false)">No — 37.5</button>
+        <button class="toggle-btn" id="btnChange" onclick="setChange(true)">Yes, different</button>
+      </div>
+    </div>
+
+    <div class="field-group" id="hoursFieldWrap" style="display:none;">
+      <span class="field-label">Hours this week</span>
+      <input type="number" id="hoursInput" step="0.5" placeholder="e.g. 30">
+      <p class="hint" id="parseHint">Enter this week's actual hours.</p>
+    </div>
+
+    <button class="btn-primary" onclick="generate()">Generate invoice + email</button>
+    <button class="btn-ghost" onclick="resetRun()">Start over</button>
+
+    <span class="archive-toggle" onclick="toggleArchive()">View sent archive</span>
+  </aside>
+
+  <main>
+    <div class="run-label" id="runLabel">Weekly run · not yet generated</div>
+    <h1 class="run-title">This week's invoice</h1>
+
+    <div id="emptyState" style="color:var(--slate); font-size:14.5px; max-width:520px;">
+      Set the week-ending date on the left, confirm whether hours changed, then generate. You'll get a full preview of the invoice and the exact email before anything is treated as sent.
+    </div>
+
+    <div id="workArea" style="display:none;">
+      <div class="panes">
+        <div>
+          <div class="doc" id="docPane"></div>
+        </div>
+        <div>
+          <div class="mail" id="mailPane"></div>
+        </div>
+      </div>
+
+      <div class="confirm-bar" id="confirmBar">
+        <div class="confirm-copy">Check the hours, total, and recipients above. Nothing sends until you confirm.</div>
+        <div class="confirm-actions">
+          <button class="btn-edit" onclick="editRun()">Edit</button>
+          <button class="btn-send" onclick="confirmSend()">Confirm &amp; send</button>
+        </div>
+      </div>
+
+      <div class="sent-banner" id="sentBanner" style="display:none;"></div>
+    </div>
+
+    <div id="archivePane" style="display:none;">
+      <h2 style="font-family:var(--serif); font-size:19px; color:var(--ink); margin:36px 0 12px;">Sent archive</h2>
+      <div class="archive" id="archiveList"></div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+const RATE = 93.00;
+const HST_RATE = 0.13;
+const CLIENT = {
+  name: "Prodigy Systems Inc",
+  addr1: "700 - 135 Yorkville Avenue",
+  addr2: "Toronto, ON M5R 0C7"
+};
+const SENDER = {
+  name: "TechFi Solutions Inc.",
+  addr1: "1605 - 25 Telegram Mews",
+  addr2: "Toronto, ON, M5V3Z1",
+  hst: "75407 5364 RT0001",
+  person: "Debanjan Bhattacharjee",
+  phone: "6478925129"
+};
+const TO_EMAIL = "Admin@prodigysys.com";
+const CC_EMAIL = "Mary Abdelnour <mabdelnour@prodigysys.com>";
+
+let hoursChanged = false;
+let currentInvoice = null;
+
+function todayDefaultFriday(){
+  const d = new Date();
+  const day = d.getDay(); // 0 Sun ... 5 Fri
+  const diff = (5 - day + 7) % 7;
+  const friday = new Date(d);
+  friday.setDate(d.getDate() + diff);
+  return friday;
+}
+function fmtDate(d){
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+function fmtDateShort(d){
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+function money(n){
+  return n.toLocaleString('en-CA', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+document.getElementById('periodDate').value = fmtDate(todayDefaultFriday());
+
+function setChange(val){
+  hoursChanged = val;
+  document.getElementById('btnNoChange').classList.toggle('active', !val);
+  document.getElementById('btnChange').classList.toggle('active', val);
+  document.getElementById('hoursFieldWrap').style.display = val ? 'block' : 'none';
+  if(val){
+    const input = document.getElementById('hoursInput');
+    input.value = '';
+    input.focus();
+  }
+}
+
+async function getConfig(){
+  try{
+    const res = await window.storage.get('invoice-config', false);
+    return JSON.parse(res.value);
+  }catch(e){
+    return { nextInvoiceNumber: 13 };
+  }
+}
+async function saveConfig(cfg){
+  try{ await window.storage.set('invoice-config', JSON.stringify(cfg), false); }
+  catch(e){ console.error('config save failed', e); }
+}
+async function getArchive(){
+  try{
+    const res = await window.storage.get('invoice-archive', false);
+    return JSON.parse(res.value);
+  }catch(e){
+    return [];
+  }
+}
+async function saveArchive(list){
+  try{ await window.storage.set('invoice-archive', JSON.stringify(list), false); }
+  catch(e){ console.error('archive save failed', e); }
+}
+
+async function generate(){
+  const dateStr = document.getElementById('periodDate').value.trim();
+  let hours = 37.5;
+  const hint = document.getElementById('parseHint');
+  hint.textContent = '';
+
+  if(hoursChanged){
+    const raw = document.getElementById('hoursInput').value.trim();
+    const parsed = parseFloat(raw);
+    if(isNaN(parsed) || parsed <= 0 || parsed > 80){
+      hint.textContent = `That doesn't look like a valid weekly hours figure — please check before generating.`;
+      hint.style.color = 'var(--rust)';
+      return;
+    }
+    hours = parsed;
+    hint.style.color = 'var(--slate-light)';
+    hint.textContent = `Using ${hours} hrs, overriding the 37.5 default for this week only.`;
+  }
+
+  const cfg = await getConfig();
+  const invoiceNumber = String(cfg.nextInvoiceNumber).padStart(3, '0');
+  const subtotal = hours * RATE;
+  const hst = subtotal * HST_RATE;
+  const total = subtotal + hst;
+
+  currentInvoice = {
+    invoiceNumber,
+    periodLabel: dateStr,
+    hours,
+    subtotal,
+    hst,
+    total,
+    generatedOn: fmtDate(new Date())
+  };
+
+  renderDoc(currentInvoice);
+  renderMail(currentInvoice);
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('workArea').style.display = 'block';
+  document.getElementById('sentBanner').style.display = 'none';
+  document.getElementById('confirmBar').style.display = 'flex';
+  document.getElementById('runLabel').textContent = `Weekly run · draft, not yet sent`;
+
+  const confirmCopy = document.querySelector('.confirm-copy');
+  if(hoursChanged){
+    confirmCopy.innerHTML = `<strong style="color:var(--rust);">Hours overridden this week: ${inv.hours} hrs instead of the standing 37.5.</strong> This note is for your review only — it will not appear on the invoice or in the email. Rate and recipients are unchanged.`;
+  } else {
+    confirmCopy.textContent = `Standard week — 37.5 hrs, no overrides. Check the total and recipients above. Nothing sends until you confirm.`;
+  }
+}
+
+function renderDoc(inv){
+  document.getElementById('docPane').innerHTML = `
+    <div class="doc-header">
+      <div class="doc-company">
+        <strong>${SENDER.name}</strong><br>
+        ${SENDER.addr1}<br>
+        ${SENDER.addr2}
+      </div>
+      <div class="doc-meta">
+        Date: ${inv.generatedOn}<br>
+        Invoice Number: ${inv.invoiceNumber}
+      </div>
+    </div>
+    <p class="doc-to-label">TO</p>
+    <div class="doc-to">
+      ${CLIENT.name}<br>
+      ${CLIENT.addr1}<br>
+      ${CLIENT.addr2}
+    </div>
+    <p class="doc-re">Re: Professional Services Rendered — Week Ended Friday, ${inv.periodLabel}</p>
+    <table class="doc-table">
+      <tr><td>Hourly Rate</td><td class="num">$${money(RATE)}</td></tr>
+      <tr><td>Total Number of Hours</td><td class="num">${inv.hours}</td></tr>
+      <tr><td>Sub-Total</td><td class="num">$${money(inv.subtotal)}</td></tr>
+      <tr><td>HST @ 13% &nbsp;${SENDER.hst}</td><td class="num">$${money(inv.hst)}</td></tr>
+      <tr class="doc-total-row"><td>Total Amount Due</td><td class="num">$${money(inv.total)}</td></tr>
+    </table>
+  `;
+}
+
+function renderMail(inv){
+  const body =
+`Hi Team,
+
+Please find my attached invoice for the week of ${inv.periodLabel} for my services rendered to CIBC under my Corp TechFi Solutions Inc.
+
+Thanks
+${SENDER.person}
+Ph- ${SENDER.phone}`;
+
+  document.getElementById('mailPane').innerHTML = `
+    <div class="mail-bar">
+      <div class="mail-row"><b>To</b><span>${TO_EMAIL}</span></div>
+      <div class="mail-row"><b>Cc</b><span>${CC_EMAIL}</span></div>
+      <div class="mail-row"><b>Subj</b><span>Timesheet - Invoice TechFi solutions Inc ${inv.periodLabel.replace(',', '').split(' ').slice(0,2).join('')}</span></div>
+    </div>
+    <div class="mail-body">${body}</div>
+    <div class="mail-attach">TechFi Solutions Inc Invoice ${inv.periodLabel.split(' ')[0]}${inv.periodLabel.split(' ')[1].replace(',', '')}.pdf</div>
+  `;
+}
+
+function editRun(){
+  document.getElementById('workArea').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'block';
+}
+
+async function confirmSend(){
+  if(!currentInvoice) return;
+  const cfg = await getConfig();
+  const archive = await getArchive();
+
+  archive.unshift({
+    invoiceNumber: currentInvoice.invoiceNumber,
+    period: currentInvoice.periodLabel,
+    hours: currentInvoice.hours,
+    total: currentInvoice.total,
+    sentOn: fmtDate(new Date())
+  });
+
+  await saveArchive(archive);
+  await saveConfig({ nextInvoiceNumber: cfg.nextInvoiceNumber + 1 });
+
+  document.getElementById('confirmBar').style.display = 'none';
+  const banner = document.getElementById('sentBanner');
+  banner.style.display = 'block';
+  banner.textContent = `Sent — Invoice ${currentInvoice.invoiceNumber} archived, total $${money(currentInvoice.total)} for ${currentInvoice.hours} hrs. Next invoice will be numbered ${String(cfg.nextInvoiceNumber+1).padStart(3,'0')}.`;
+  document.getElementById('runLabel').textContent = `Weekly run · sent and archived`;
+
+  renderArchive();
+}
+
+function resetRun(){
+  currentInvoice = null;
+  hoursChanged = false;
+  document.getElementById('periodDate').value = fmtDate(todayDefaultFriday());
+  setChange(false);
+  document.getElementById('hoursInput').value = '';
+  document.getElementById('parseHint').textContent = '';
+  document.getElementById('workArea').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('runLabel').textContent = 'Weekly run · not yet generated';
+}
+
+let archiveVisible = false;
+async function toggleArchive(){
+  archiveVisible = !archiveVisible;
+  document.getElementById('archivePane').style.display = archiveVisible ? 'block' : 'none';
+  if(archiveVisible) renderArchive();
+}
+
+async function renderArchive(){
+  const archive = await getArchive();
+  const list = document.getElementById('archiveList');
+  if(archive.length === 0){
+    list.innerHTML = `<div class="archive-empty">Nothing sent yet in this prototype. Confirm and send a run to see it archived here.</div>`;
+    return;
+  }
+  let html = `<div class="archive-row head"><div>#</div><div>Period</div><div>Hours</div><div>Total</div><div>Sent</div></div>`;
+  archive.forEach(a => {
+    html += `<div class="archive-row">
+      <div>${a.invoiceNumber}</div>
+      <div>${a.period}</div>
+      <div>${a.hours}</div>
+      <div>$${money(a.total)}</div>
+      <div>${a.sentOn}</div>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+</script>
+</body>
+</html>
