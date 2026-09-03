@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#1B2430">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%231B2430'/%3E%3Ctext x='90' y='108' font-family='Georgia,serif' font-size='84' fill='%23A8894F' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
 <title>TechFi Invoicing — Weekly Run</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --ink:#1B2430;
@@ -410,7 +412,7 @@
         <div class="confirm-copy">Check the hours, total, and recipients above. Nothing sends until you confirm.</div>
         <div class="confirm-actions">
           <button class="btn-edit" onclick="editRun()">Edit</button>
-          <button class="btn-send" onclick="confirmSend()">Confirm &amp; send</button>
+          <button class="btn-send" onclick="confirmSend()">Download PDF &amp; open Gmail</button>
         </div>
       </div>
 
@@ -443,6 +445,7 @@ const SENDER = {
 };
 const TO_EMAIL = "Admin@prodigysys.com";
 const CC_EMAIL = "Mary Abdelnour <mabdelnour@prodigysys.com>";
+const SENDER_GMAIL = "debanjanbhattacharjee29@gmail.com";
 
 let hoursChanged = false;
 let currentInvoice = null;
@@ -600,13 +603,19 @@ Ph- ${SENDER.phone}`;
 
   document.getElementById('mailPane').innerHTML = `
     <div class="mail-bar">
+      <div class="mail-row"><b>From</b><span>${SENDER_GMAIL}</span></div>
       <div class="mail-row"><b>To</b><span>${TO_EMAIL}</span></div>
       <div class="mail-row"><b>Cc</b><span>${CC_EMAIL}</span></div>
       <div class="mail-row"><b>Subj</b><span>Timesheet - Invoice TechFi solutions Inc ${inv.periodLabel.replace(',', '').split(' ').slice(0,2).join('')}</span></div>
     </div>
     <div class="mail-body">${body}</div>
-    <div class="mail-attach">TechFi Solutions Inc Invoice ${inv.periodLabel.split(' ')[0]}${inv.periodLabel.split(' ')[1].replace(',', '')}.pdf</div>
+    <div class="mail-attach">${pdfFilename(inv)} — downloads automatically, attach it in Gmail before sending</div>
   `;
+}
+
+function pdfFilename(inv){
+  const parts = inv.periodLabel.split(' ');
+  return `TechFi Solutions Inc Invoice ${parts[0]}${parts[1].replace(',', '')}.pdf`;
 }
 
 function editRun(){
@@ -616,9 +625,33 @@ function editRun(){
 
 async function confirmSend(){
   if(!currentInvoice) return;
+
+  // Open a blank tab synchronously (inside the click handler) so mobile
+  // Safari doesn't treat the later redirect as a blocked popup.
+  const mailWin = window.open('', '_blank');
+
+  const sendBtn = document.querySelector('.btn-send');
+  sendBtn.textContent = 'Preparing PDF…';
+  sendBtn.disabled = true;
+
+  try{
+    const docEl = document.getElementById('docPane');
+    const canvas = await html2canvas(docEl, { scale: 2, backgroundColor: '#FBF9F4' });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'pt', 'letter');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const ratio = canvas.height / canvas.width;
+    const pdfWidth = pageWidth - 80;
+    const pdfHeight = pdfWidth * ratio;
+    pdf.addImage(imgData, 'PNG', 40, 40, pdfWidth, pdfHeight);
+    pdf.save(pdfFilename(currentInvoice));
+  }catch(e){
+    console.error('PDF generation failed', e);
+  }
+
   const cfg = await getConfig();
   const archive = await getArchive();
-
   archive.unshift({
     invoiceNumber: currentInvoice.invoiceNumber,
     period: currentInvoice.periodLabel,
@@ -626,15 +659,35 @@ async function confirmSend(){
     total: currentInvoice.total,
     sentOn: fmtDate(new Date())
   });
-
   await saveArchive(archive);
   await saveConfig({ nextInvoiceNumber: cfg.nextInvoiceNumber + 1 });
+
+  const body =
+`Hi Team,
+
+Please find my attached invoice for the week of ${currentInvoice.periodLabel} for my services rendered to CIBC under my Corp TechFi Solutions Inc.
+
+Thanks
+${SENDER.person}
+Ph- ${SENDER.phone}`;
+
+  const subject = `Timesheet - Invoice TechFi solutions Inc ${currentInvoice.periodLabel.replace(',', '').split(' ').slice(0,2).join('')}`;
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(TO_EMAIL)}&cc=${encodeURIComponent(CC_EMAIL)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  if(mailWin){
+    mailWin.location.href = gmailUrl;
+  } else {
+    window.location.href = gmailUrl;
+  }
 
   document.getElementById('confirmBar').style.display = 'none';
   const banner = document.getElementById('sentBanner');
   banner.style.display = 'block';
-  banner.textContent = `Sent — Invoice ${currentInvoice.invoiceNumber} archived, total $${money(currentInvoice.total)} for ${currentInvoice.hours} hrs. Next invoice will be numbered ${String(cfg.nextInvoiceNumber+1).padStart(3,'0')}.`;
-  document.getElementById('runLabel').textContent = `Weekly run · sent and archived`;
+  banner.innerHTML = `PDF downloaded and Gmail opened, pre-filled and ready — attach <strong>${pdfFilename(currentInvoice)}</strong> from your downloads, then hit send in Gmail yourself. Invoice ${currentInvoice.invoiceNumber} is archived, total $${money(currentInvoice.total)} for ${currentInvoice.hours} hrs. Next invoice will be numbered ${String(cfg.nextInvoiceNumber+1).padStart(3,'0')}.`;
+  document.getElementById('runLabel').textContent = `Weekly run · handed off to Gmail`;
+
+  sendBtn.textContent = 'Download PDF & open Gmail';
+  sendBtn.disabled = false;
 
   renderArchive();
 }
