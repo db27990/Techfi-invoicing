@@ -10,8 +10,7 @@
 <meta name="theme-color" content="#1B2430">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%231B2430'/%3E%3Ctext x='90' y='108' font-family='Georgia,serif' font-size='84' fill='%23A8894F' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
 <title>TechFi Invoicing — Weekly Run</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --ink:#1B2430;
@@ -190,42 +189,30 @@
     .panes{ grid-template-columns: 1fr; }
   }
 
-  /* Invoice document */
+  /* Invoice document — exact match to the real rendered RTF: navy blue text, bordered grid table */
   .doc{
-    background:var(--paper);
-    border:1px solid var(--paper-line);
-    box-shadow:0 1px 3px rgba(0,0,0,0.08);
-    padding:44px 42px;
-    font-family:var(--serif);
-    color:#241F17;
-  }
-  .doc-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    margin-bottom:26px;
-  }
-  .doc-company{ font-size:15px; line-height:1.55; }
-  .doc-company strong{ font-size:16px; }
-  .doc-meta{ text-align:right; font-size:13.5px; line-height:1.7; color:#4A4436; }
-  .doc-rule{ border:none; border-top:1px solid #C9C2AE; margin:22px 0; }
-  .doc-to-label{ font-size:11.5px; letter-spacing:0.4px; color:#8A8268; margin-bottom:4px; }
-  .doc-to{ font-size:14.5px; line-height:1.6; margin-bottom:26px; }
-  .doc-re{ font-size:14px; font-style:italic; color:#3A3527; margin-bottom:22px; }
-  table.doc-table{ width:100%; border-collapse:collapse; font-size:14.5px; }
-  table.doc-table td{ padding:9px 0; border-bottom:1px solid #E4DFCF; }
-  table.doc-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
-  .doc-total-row td{ border-bottom:none; border-top:2px solid #241F17; padding-top:14px; font-weight:700; font-size:16px; }
-  .doc-flag{
-    margin-top:20px;
-    background:var(--rust-bg);
-    border-left:3px solid var(--rust);
-    padding:10px 13px;
-    font-family:var(--sans);
-    font-size:12.5px;
-    color:#7A3327;
+    background:#FFFFFF;
+    border:1px solid #CCCCCC;
+    padding:36px 32px;
+    font-family:-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    color:#1B3F94;
+    font-size:15px;
     line-height:1.5;
   }
+  .doc-company{ margin-bottom:18px; }
+  .doc-meta-date{ margin-bottom:4px; }
+  .doc-meta-date strong{ font-weight:700; }
+  .doc-invoice-num{ text-align:right; margin:20px 0 22px; }
+  .doc-to-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:20px; }
+  .doc-to-left strong{ font-weight:700; }
+  .doc-to-right{ font-style:italic; text-align:right; }
+  .doc-title{ margin-bottom:16px; }
+  .doc-title strong{ font-weight:700; }
+  table.doc-table{ width:100%; border-collapse:collapse; font-size:15px; }
+  table.doc-table td{ border:1px solid #9AA5C4; padding:6px 10px; }
+  table.doc-table td:first-child{ width:42%; }
+  table.doc-table td:nth-child(2){ width:30%; }
+  table.doc-table td.num{ text-align:right; }
 
   /* Email card */
   .mail{
@@ -285,7 +272,12 @@
     font-size:14px;
     font-weight:600;
     cursor:pointer;
+    text-decoration:none;
+    display:inline-block;
+    text-align:center;
   }
+  .btn-send:visited{ color:#fff; }
+  .btn-send[disabled]{ opacity:0.5; cursor:default; }
   .btn-edit{
     background:transparent;
     border:1px solid #C7C1B0;
@@ -363,6 +355,13 @@
       <div class="field-value">$93.00 / hr</div>
     </div>
 
+    <div class="field-group">
+      <span class="field-label">Next invoice number</span>
+      <input type="number" id="nextInvoiceInput" step="1" min="1">
+      <p class="hint" id="invoiceNumHint">Correct this any time — useful after testing, or if a real invoice number ever drifts.</p>
+      <button class="btn-ghost" style="margin-top:8px;" onclick="saveNextInvoiceNumber()">Save invoice number</button>
+    </div>
+
     <hr class="divider">
 
     <div class="field-group">
@@ -386,6 +385,8 @@
 
     <button class="btn-primary" onclick="generate()">Generate invoice + email</button>
     <button class="btn-ghost" onclick="resetRun()">Start over</button>
+
+    <button class="btn-ghost" onclick="addFridayReminder()">📅 Set up Friday reminder</button>
 
     <span class="archive-toggle" onclick="toggleArchive()">View sent archive</span>
   </aside>
@@ -411,8 +412,8 @@
       <div class="confirm-bar" id="confirmBar">
         <div class="confirm-copy">Check the hours, total, and recipients above. Nothing sends until you confirm.</div>
         <div class="confirm-actions">
-          <button class="btn-edit" onclick="editRun()">Edit</button>
-          <button class="btn-send" onclick="confirmSend()">Download PDF &amp; open Gmail</button>
+          <a class="btn-send" id="docBtn" href="#" onclick="handleDocTap(event)">1. Preparing document…</a>
+          <a class="btn-send" id="gmailLink" href="#" onclick="markSent()">2. Open Gmail</a>
         </div>
       </div>
 
@@ -449,6 +450,8 @@ const SENDER_GMAIL = "debanjanbhattacharjee29@gmail.com";
 
 let hoursChanged = false;
 let currentInvoice = null;
+let currentDocBlob = null;
+let currentDocFilename = null;
 
 function todayDefaultFriday(){
   const d = new Date();
@@ -458,9 +461,59 @@ function todayDefaultFriday(){
   friday.setDate(d.getDate() + diff);
   return friday;
 }
+
+const APP_URL = 'https://db27990.github.io/Techfi-invoicing/';
+
+function addFridayReminder(){
+  let nextFriday = todayDefaultFriday();
+  const dt = new Date(nextFriday);
+  dt.setHours(16, 30, 0, 0);
+  if(dt < new Date()){
+    // Today is Friday and 4:30pm has already passed — start next week instead.
+    dt.setDate(dt.getDate() + 7);
+  }
+  const pad = n => String(n).padStart(2, '0');
+  const dtStr = `${dt.getFullYear()}${pad(dt.getMonth()+1)}${pad(dt.getDate())}T${pad(dt.getHours())}${pad(dt.getMinutes())}00`;
+  const uid = `techfi-invoice-weekly-${Date.now()}@techfi-invoicing`;
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//TechFi Invoicing//EN',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${dtStr}`,
+    `DTSTART:${dtStr}`,
+    'DURATION:PT15M',
+    'RRULE:FREQ=WEEKLY;BYDAY=FR',
+    'SUMMARY:Enter this week\'s invoice hours',
+    `DESCRIPTION:Open the TechFi Invoicing app and enter this week's hours to generate and send the invoice. ${APP_URL}`,
+    `URL:${APP_URL}`,
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Enter this week\'s invoice hours',
+    'TRIGGER:PT0M',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+  window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+}
 function fmtDate(d){
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+function ordinal(n){
+  const s = ["th","st","nd","rd"];
+  const v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+function fmtDateOrdinal(d){
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return `${ordinal(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+function fmtMonthDayOrdinal(d){
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return `${months[d.getMonth()]} ${ordinal(d.getDate())}, ${d.getFullYear()}`;
 }
 function fmtDateShort(d){
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -470,7 +523,33 @@ function money(n){
   return n.toLocaleString('en-CA', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
-document.getElementById('periodDate').value = fmtDate(todayDefaultFriday());
+document.getElementById('periodDate').value = fmtMonthDayOrdinal(todayDefaultFriday());
+
+async function loadNextInvoiceNumber(){
+  const cfg = await getConfig();
+  document.getElementById('nextInvoiceInput').value = cfg.nextInvoiceNumber;
+  const archive = await getArchive();
+  const hint = document.getElementById('invoiceNumHint');
+  if(archive.length > 0){
+    hint.textContent = `Last sent: #${archive[0].invoiceNumber} (${archive[0].period}). Correct this any time — useful after testing.`;
+  } else {
+    hint.textContent = `No invoices archived on this device yet. Correct this any time — useful after testing.`;
+  }
+}
+loadNextInvoiceNumber();
+
+async function saveNextInvoiceNumber(){
+  const val = parseInt(document.getElementById('nextInvoiceInput').value, 10);
+  const hint = document.getElementById('invoiceNumHint');
+  if(isNaN(val) || val < 1){
+    hint.textContent = 'Enter a valid invoice number (1 or higher).';
+    hint.style.color = 'var(--rust)';
+    return;
+  }
+  await saveConfig({ nextInvoiceNumber: val });
+  hint.textContent = `Saved — next invoice generated will be numbered ${String(val).padStart(3,'0')}.`;
+  hint.style.color = 'var(--slate-light)';
+}
 
 function setChange(val){
   hoursChanged = val;
@@ -541,11 +620,18 @@ async function generate(){
     subtotal,
     hst,
     total,
-    generatedOn: fmtDate(new Date())
+    generatedOn: fmtDate(new Date()),
+    generatedOnOrdinal: fmtDateOrdinal(new Date())
   };
 
   renderDoc(currentInvoice);
   renderMail(currentInvoice);
+
+  alreadyArchived = false;
+  const gmailLink = document.getElementById('gmailLink');
+  gmailLink.href = buildGmailUrl(currentInvoice);
+  gmailLink.target = isIOS() ? '_self' : '_blank';
+  gmailLink.rel = 'noopener';
 
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('workArea').style.display = 'block';
@@ -553,9 +639,16 @@ async function generate(){
   document.getElementById('confirmBar').style.display = 'flex';
   document.getElementById('runLabel').textContent = `Weekly run · draft, not yet sent`;
 
+  // PDF capture happens only after the document is actually visible on
+  // screen — a hidden (display:none) element has zero width/height, which
+  // was producing a corrupt zero-size image and the jsPDF scale error.
+  currentDocBlob = null;
+  currentDocFilename = null;
+  prepareWordDoc(currentInvoice);
+
   const confirmCopy = document.querySelector('.confirm-copy');
   if(hoursChanged){
-    confirmCopy.innerHTML = `<strong style="color:var(--rust);">Hours overridden this week: ${inv.hours} hrs instead of the standing 37.5.</strong> This note is for your review only — it will not appear on the invoice or in the email. Rate and recipients are unchanged.`;
+    confirmCopy.innerHTML = `<strong style="color:var(--rust);">Hours overridden this week: ${currentInvoice.hours} hrs instead of the standing 37.5.</strong> This note is for your review only — it will not appear on the invoice or in the email. Rate and recipients are unchanged.`;
   } else {
     confirmCopy.textContent = `Standard week — 37.5 hrs, no overrides. Check the total and recipients above. Nothing sends until you confirm.`;
   }
@@ -563,30 +656,27 @@ async function generate(){
 
 function renderDoc(inv){
   document.getElementById('docPane').innerHTML = `
-    <div class="doc-header">
-      <div class="doc-company">
-        <strong>${SENDER.name}</strong><br>
-        ${SENDER.addr1}<br>
-        ${SENDER.addr2}
-      </div>
-      <div class="doc-meta">
-        Date: ${inv.generatedOn}<br>
-        Invoice Number: ${inv.invoiceNumber}
-      </div>
+    <div class="doc-company">
+      TECHFI SOLUTIONS INC.<br>
+      ${SENDER.addr1}<br>
+      ${SENDER.addr2}
     </div>
-    <p class="doc-to-label">TO</p>
-    <div class="doc-to">
-      ${CLIENT.name}<br>
-      ${CLIENT.addr1}<br>
-      ${CLIENT.addr2}
+    <div class="doc-meta-date"><strong>Date:</strong> ${inv.generatedOnOrdinal}</div>
+    <div class="doc-invoice-num">Invoice Number: ${inv.invoiceNumber}</div>
+    <div class="doc-to-row">
+      <div class="doc-to-left"><strong>TO:</strong> &nbsp;${CLIENT.name}</div>
+      <div class="doc-to-right">${CLIENT.addr1}<br>${CLIENT.addr2}</div>
     </div>
-    <p class="doc-re">Re: Professional Services Rendered — Week Ended Friday, ${inv.periodLabel}</p>
+    <div class="doc-title">Professional Services Rendered Week Ended <strong>${inv.periodLabel}</strong></div>
     <table class="doc-table">
-      <tr><td>Hourly Rate</td><td class="num">$${money(RATE)}</td></tr>
-      <tr><td>Total Number of Hours</td><td class="num">${inv.hours}</td></tr>
-      <tr><td>Sub-Total</td><td class="num">$${money(inv.subtotal)}</td></tr>
-      <tr><td>HST @ 13% &nbsp;${SENDER.hst}</td><td class="num">$${money(inv.hst)}</td></tr>
-      <tr class="doc-total-row"><td>Total Amount Due</td><td class="num">$${money(inv.total)}</td></tr>
+      <tr><td>Hourly Rate:</td><td></td><td class="num">$${money(RATE)}</td></tr>
+      <tr><td>Total Number of Hours:</td><td></td><td class="num">${inv.hours}</td></tr>
+      <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>Sub-Total</td><td></td><td class="num">$${money(inv.subtotal)}</td></tr>
+      <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>HST @ 13%</td><td>${SENDER.hst}</td><td class="num">$${money(inv.hst)}</td></tr>
+      <tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+      <tr><td>Total Amount Due:</td><td></td><td class="num">$${money(inv.total)}</td></tr>
     </table>
   `;
 }
@@ -609,46 +699,186 @@ Ph- ${SENDER.phone}`;
       <div class="mail-row"><b>Subj</b><span>Timesheet - Invoice TechFi solutions Inc ${inv.periodLabel.replace(',', '').split(' ').slice(0,2).join('')}</span></div>
     </div>
     <div class="mail-body">${body}</div>
-    <div class="mail-attach">${pdfFilename(inv)} — downloads automatically, attach it in Gmail before sending</div>
+    <div class="mail-attach">${docFilename(inv)} — downloads automatically, attach it in Gmail before sending</div>
   `;
 }
 
-function pdfFilename(inv){
+function docFilename(inv){
   const parts = inv.periodLabel.split(' ');
-  return `TechFi Solutions Inc Invoice ${parts[0]}${parts[1].replace(',', '')}.pdf`;
+  return `TechFi Solutions Inc Invoice ${parts[0]}${parts[1].replace(',', '')}.docx`;
 }
 
-function editRun(){
-  document.getElementById('workArea').style.display = 'none';
-  document.getElementById('emptyState').style.display = 'block';
+function isIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-async function confirmSend(){
-  if(!currentInvoice) return;
-
-  // Open a blank tab synchronously (inside the click handler) so mobile
-  // Safari doesn't treat the later redirect as a blocked popup.
-  const mailWin = window.open('', '_blank');
-
-  const sendBtn = document.querySelector('.btn-send');
-  sendBtn.textContent = 'Preparing PDF…';
-  sendBtn.disabled = true;
-
-  try{
-    const docEl = document.getElementById('docPane');
-    const canvas = await html2canvas(docEl, { scale: 2, backgroundColor: '#FBF9F4' });
-    const imgData = canvas.toDataURL('image/png');
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('p', 'pt', 'letter');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const ratio = canvas.height / canvas.width;
-    const pdfWidth = pageWidth - 80;
-    const pdfHeight = pdfWidth * ratio;
-    pdf.addImage(imgData, 'PNG', 40, 40, pdfWidth, pdfHeight);
-    pdf.save(pdfFilename(currentInvoice));
-  }catch(e){
-    console.error('PDF generation failed', e);
+function handleDocTap(ev){
+  if(isIOS() && currentDocBlob && navigator.canShare){
+    const file = new File([currentDocBlob], currentDocFilename || 'invoice.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    if(navigator.canShare({ files: [file] })){
+      ev.preventDefault();
+      navigator.share({ files: [file], title: currentDocFilename }).catch(err => {
+        console.error('Share sheet failed or was cancelled', err);
+      });
+      return;
+    }
   }
+  // Desktop, or iOS without file-sharing support: fall through to the
+  // normal download-link behavior (href + download attribute).
+}
+
+function xmlEscape(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function wRun(text, opts){
+  opts = opts || {};
+  const props = [];
+  if(opts.bold) props.push('<w:b/>');
+  if(opts.italic) props.push('<w:i/>');
+  props.push(`<w:color w:val="${opts.color || '1B3F94'}"/>`);
+  props.push(`<w:sz w:val="${opts.size || 22}"/>`);
+  return `<w:r><w:rPr>${props.join('')}</w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+}
+function wPara(runsXml, opts){
+  opts = opts || {};
+  const align = opts.align ? `<w:jc w:val="${opts.align}"/>` : '';
+  const spacing = `<w:spacing w:after="${opts.after != null ? opts.after : 120}"/>`;
+  return `<w:p><w:pPr>${align}${spacing}</w:pPr>${runsXml}</w:p>`;
+}
+function wCell(runsXml, opts){
+  opts = opts || {};
+  const width = opts.width || 3000;
+  const align = opts.align ? `<w:jc w:val="${opts.align}"/>` : '';
+  const borders = opts.noBorder
+    ? `<w:tcBorders><w:top w:val="nil"/><w:bottom w:val="nil"/><w:left w:val="nil"/><w:right w:val="nil"/></w:tcBorders>`
+    : `<w:tcBorders><w:top w:val="single" w:sz="4" w:color="9AA5C4"/><w:bottom w:val="single" w:sz="4" w:color="9AA5C4"/><w:left w:val="single" w:sz="4" w:color="9AA5C4"/><w:right w:val="single" w:sz="4" w:color="9AA5C4"/></w:tcBorders>`;
+  return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${borders}</w:tcPr><w:p><w:pPr>${align}</w:pPr>${runsXml}</w:p></w:tc>`;
+}
+function wTableRow(cellsXml){
+  return `<w:tr>${cellsXml}</w:tr>`;
+}
+
+function buildDocumentXml(inv){
+  const body = [];
+
+  body.push(wPara(wRun('TECHFI SOLUTIONS INC.'), { after: 0 }));
+  body.push(wPara(wRun(SENDER.addr1), { after: 0 }));
+  body.push(wPara(wRun(SENDER.addr2), { after: 240 }));
+
+  body.push(wPara(wRun('Date: ', { bold: true }) + wRun(inv.generatedOnOrdinal), { after: 240 }));
+  body.push(wPara(wRun('Invoice Number: ' + inv.invoiceNumber), { align: 'right', after: 240 }));
+
+  // TO block — borderless 2-column table so the name sits left and the
+  // address sits right, matching the real document's layout.
+  const toRow = wTableRow(
+    wCell(wRun('TO: ', { bold: true }) + wRun(CLIENT.name), { width: 5000, noBorder: true }) +
+    wCell(wRun(CLIENT.addr1, { italic: true }) + '<w:r><w:br/></w:r>' + wRun(CLIENT.addr2, { italic: true }), { width: 4360, align: 'right', noBorder: true })
+  );
+  body.push(`<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblBorders><w:top w:val="nil"/><w:bottom w:val="nil"/><w:left w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="5000"/><w:gridCol w:w="4360"/></w:tblGrid>${toRow}</w:tbl>`);
+  body.push(wPara('', { after: 240 }));
+
+  body.push(wPara(wRun('Professional Services Rendered Week Ended ') + wRun(inv.periodLabel, { bold: true }), { after: 120 }));
+
+  const rows = [
+    ['Hourly Rate:', '', `$${money(RATE)}`],
+    ['Total Number of Hours:', '', `${inv.hours}`],
+    ['', '', ''],
+    ['Sub-Total', '', `$${money(inv.subtotal)}`],
+    ['', '', ''],
+    ['HST @ 13%', SENDER.hst, `$${money(inv.hst)}`],
+    ['', '', ''],
+    ['Total Amount Due:', '', `$${money(inv.total)}`]
+  ];
+  const tableRows = rows.map(r =>
+    wTableRow(
+      wCell(wRun(r[0]), { width: 3900 }) +
+      wCell(wRun(r[1]), { width: 2800 }) +
+      wCell(wRun(r[2]), { width: 2660, align: 'right' })
+    )
+  ).join('');
+  body.push(`<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="3900"/><w:gridCol w:w="2800"/><w:gridCol w:w="2660"/></w:tblGrid>${tableRows}</w:tbl>`);
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>
+${body.join('')}
+<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>
+</w:body>
+</w:document>`;
+}
+
+async function prepareWordDoc(inv){
+  const link = document.getElementById('docBtn');
+  link.href = '#';
+  link.removeAttribute('download');
+  link.textContent = '1. Preparing document…';
+  try{
+    const filename = docFilename(inv);
+    const documentXml = buildDocumentXml(inv);
+
+    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+    const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', contentTypesXml);
+    zip.folder('_rels').file('.rels', relsXml);
+    zip.folder('word').file('document.xml', documentXml);
+
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+
+    if(currentInvoice !== inv) return;
+
+    const blobUrl = URL.createObjectURL(blob);
+    currentDocBlob = blob;
+    currentDocFilename = filename;
+    link.href = blobUrl;
+    link.setAttribute('download', filename);
+    link.textContent = '1. Download Word doc';
+  }catch(e){
+    console.error('Word document generation failed', e);
+    link.textContent = '1. Document failed — tap to retry';
+    link.href = '#';
+    link.onclick = (ev) => { ev.preventDefault(); prepareWordDoc(inv); };
+  }
+}
+
+function buildGmailUrl(inv){
+  const body =
+`Hi Team,
+
+Please find my attached invoice for the week of ${inv.periodLabel} for my services rendered to CIBC under my Corp TechFi Solutions Inc.
+
+Thanks
+${SENDER.person}
+Ph- ${SENDER.phone}`;
+  const subject = `Timesheet - Invoice TechFi solutions Inc ${inv.periodLabel.replace(',', '').split(' ').slice(0,2).join('')}`;
+
+  if(isIOS()){
+    // Gmail's own app deep link — the mail.google.com web URL gets
+    // intercepted by the Gmail app on iOS but doesn't carry these
+    // parameters through, so the compose screen opens blank.
+    return `googlegmail:///co?to=${encodeURIComponent(TO_EMAIL)}&cc=${encodeURIComponent(CC_EMAIL)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(TO_EMAIL)}&cc=${encodeURIComponent(CC_EMAIL)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+let alreadyArchived = false;
+
+async function markSent(){
+  if(!currentInvoice || alreadyArchived) return;
+  alreadyArchived = true;
 
   const cfg = await getConfig();
   const archive = await getArchive();
@@ -662,40 +892,22 @@ async function confirmSend(){
   await saveArchive(archive);
   await saveConfig({ nextInvoiceNumber: cfg.nextInvoiceNumber + 1 });
 
-  const body =
-`Hi Team,
-
-Please find my attached invoice for the week of ${currentInvoice.periodLabel} for my services rendered to CIBC under my Corp TechFi Solutions Inc.
-
-Thanks
-${SENDER.person}
-Ph- ${SENDER.phone}`;
-
-  const subject = `Timesheet - Invoice TechFi solutions Inc ${currentInvoice.periodLabel.replace(',', '').split(' ').slice(0,2).join('')}`;
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(TO_EMAIL)}&cc=${encodeURIComponent(CC_EMAIL)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-  if(mailWin){
-    mailWin.location.href = gmailUrl;
-  } else {
-    window.location.href = gmailUrl;
-  }
-
   document.getElementById('confirmBar').style.display = 'none';
   const banner = document.getElementById('sentBanner');
   banner.style.display = 'block';
-  banner.innerHTML = `PDF downloaded and Gmail opened, pre-filled and ready — attach <strong>${pdfFilename(currentInvoice)}</strong> from your downloads, then hit send in Gmail yourself. Invoice ${currentInvoice.invoiceNumber} is archived, total $${money(currentInvoice.total)} for ${currentInvoice.hours} hrs. Next invoice will be numbered ${String(cfg.nextInvoiceNumber+1).padStart(3,'0')}.`;
+  banner.innerHTML = `Gmail opened, pre-filled and ready — attach <strong>${docFilename(currentInvoice)}</strong> from your downloads, then hit send in Gmail yourself. Invoice ${currentInvoice.invoiceNumber} is archived, total $${money(currentInvoice.total)} for ${currentInvoice.hours} hrs. Next invoice will be numbered ${String(cfg.nextInvoiceNumber+1).padStart(3,'0')}.`;
   document.getElementById('runLabel').textContent = `Weekly run · handed off to Gmail`;
 
-  sendBtn.textContent = 'Download PDF & open Gmail';
-  sendBtn.disabled = false;
-
   renderArchive();
+  loadNextInvoiceNumber();
+  // Native link navigation continues after this handler returns —
+  // no preventDefault(), so the tap still opens Gmail normally.
 }
 
 function resetRun(){
   currentInvoice = null;
   hoursChanged = false;
-  document.getElementById('periodDate').value = fmtDate(todayDefaultFriday());
+  document.getElementById('periodDate').value = fmtMonthDayOrdinal(todayDefaultFriday());
   setChange(false);
   document.getElementById('hoursInput').value = '';
   document.getElementById('parseHint').textContent = '';
